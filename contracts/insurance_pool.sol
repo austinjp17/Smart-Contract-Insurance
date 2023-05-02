@@ -27,6 +27,9 @@ contract Insurance_Policy {
     // The time at which the policy expires
     uint public expirationTime;
 
+    // Claimed bool
+    bool public claimed = false;
+
     constructor(uint _payout, uint _durationInDays){
         owner = payable(msg.sender);
         // beneficiary = payable(_benficiary);
@@ -34,9 +37,10 @@ contract Insurance_Policy {
         expirationTime = block.timestamp + (_durationInDays * 1 days);
     }
 
-    function payout() public view {
+    function payout() public {
         require(msg.sender == owner);
         require(block.timestamp < expirationTime);
+        claimed = true;
 
         //TODO: Deposit money into contract
 

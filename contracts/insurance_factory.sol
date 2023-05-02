@@ -1,150 +1,107 @@
+/* This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 pragma solidity ^0.8.0;
 
-// Factory contract that creates new instances of InsurancePolicy
-contract InsuranceFactory {
+import "./insurance_policy.sol";
 
-    // Array of addresses that are allowed to create new policies
-    address[] private allowedCreators;
+contract Insurance_Factory {
 
-    // Array to keep track of all the policies that have been created
-    address payable[] private allPolicies;
+    address owner;
+
+    uint poolBalance = 0;
     
-    // Modifier that checks if the caller is allowed to create new policies
-    modifier onlyAllowedCreators() {
-        bool allowed = false;
-        for (uint256 i = 0; i < allowedCreators.length; i++) {
-            if (allowedCreators[i] == msg.sender) {
-                allowed = true;
-                break;
-            }
+    address[] allowedCreatorsList;
+    mapping (address => bool) allowedCreators;
+    mapping (address => Insurance_Policy[]) CreatorsPolicyMap;
+
+    constructor(address[] memory _allowedCreators) {
+        //Initalize Allowed Creator Structures
+        for (uint i = 0; i < _allowedCreators.length; i++) {
+            owner = msg.sender;
+
+            //add address to key list
+            allowedCreatorsList.push(_allowedCreators[i]);
+
+            // add address to key mapping
+            allowedCreators[_allowedCreators[i]] = true;
+
+            // add key to creator claims map
+            CreatorsPolicyMap[_allowedCreators[i]] = new Insurance_Policy[](0);
         }
-        require(allowed, "Only allowed creators can create new policies");
+
+        //Create Insurance Pool Contract
+        // pool = new Insurance_Pool(allowedCreatorsList);
+    }
+
+    //MODIFIERS
+
+    modifier checkOwner(){
+        // factory owner only
+        require(msg.sender == owner,
+        "This function may only be called by the owners");
         _;
     }
 
-    // Constructor function that sets the initial set of allowed creators
-    constructor(address[] memory _allowedCreators) {
-        allowedCreators = _allowedCreators;
+    modifier checkVendor() {
+        // approved vendor or factory owner
+        require(allowedCreators[msg.sender] == true || msg.sender == owner, 
+        "Not a permission Vendor or owner");
+        _;
     }
 
-    // Function to add a new address to the allowed creators list
-    function addAllowedCreator(address newCreator) public onlyAllowedCreators {
-        allowedCreators.push(newCreator);
+    //FUNCTIONS
+
+    //Pool Interaction Functions
+    function getPoolBalance() public view returns (uint){
+        return(address(this).balance);
     }
 
-    // Function to remove an address from the allowed creators list
-    function removeAllowedCreator(address creator) public onlyAllowedCreators {
-        for (uint256 i = 0; i < allowedCreators.length; i++) {
-            if (allowedCreators[i] == creator) {
-                allowedCreators[i] = allowedCreators[allowedCreators.length - 1];
-                allowedCreators.pop();
-                break;
-            }
-        }
+    function poolDeposit() payable public returns(uint256) {
+        poolBalance += msg.value;
+        return(msg.value);
     }
 
-    // Function to create a new instance of InsurancePolicy with an initial premium
-    function createInsurancePolicy(address payable _beneficiary, uint _premiumAmount, uint _payoutAmount, uint _durationInDays) public onlyAllowedCreators returns (address) {
-        
-        // Create a new instance of InsurancePolicy using the provided initial premium
-        InsurancePolicy newPolicy = new InsurancePolicy(_beneficiary, _premiumAmount, _payoutAmount, _durationInDays);
+    function poolWithdraw(uint amount) checkVendor external {
+        poolBalance -= amount;
+        require(address(this).balance > amount, "Not enough to cover claim");
+        payable(msg.sender).transfer(amount);
 
-        allPolicies.push(address(newPolicy));
-
-        // Return the address of the new instance of InsurancePolicy
-        return address(newPolicy);
     }
+
     
-    // Function to view all currently open policies
-    function viewOpenPolicies() public view returns (address[] memory) {
-        uint openPolicyCount = 0;
-        for (uint256 i = 0; i < allPolicies.length; i++) {
-            if (InsurancePolicy(allPolicies[i]).isActive()) {
-                openPolicyCount++;
-            }
-        }
-        address[] memory openPolicies = new address[](openPolicyCount);
-        uint openPolicyIndex = 0;
-        for (uint256 i = 0; i < allPolicies.length; i++) {
-            if (InsurancePolicy(allPolicies[i]).isActive()) {
-                openPolicies[openPolicyIndex] = allPolicies[i];
-                openPolicyIndex++;
-            }
-        }
-        return openPolicies;
+    //Vendor Interaction Functions
+    function getVendorPolicies(address creator) public view returns(Insurance_Policy[] memory) {
+        return(CreatorsPolicyMap[creator]);
+    } 
+
+    function getVendors() public view returns (address[] memory) {
+        return allowedCreatorsList;
     }
+
+    function addVendor(address creator) checkOwner public {
+        allowedCreatorsList.push(creator);
+        allowedCreators[creator] = true;
+        CreatorsPolicyMap[creator] = new Insurance_Policy[](0);
+    }
+
+    //Create Policy
+    function createPolicy() checkVendor public returns(address) {
+        Insurance_Policy newPolicy = new Insurance_Policy(1, 31);
+        CreatorsPolicyMap[msg.sender].push(newPolicy);
+        return(address(newPolicy));
+    }
+
+
     
-    
-
-}
-
-
-// Contract representing an insurance policy
-contract InsurancePolicy {
-    // The owner of the contract
-    address payable public owner;
-
-    // The beneficiary of the insurance policy
-    address payable public beneficiary;
-
-    // The amount of the insurance premium
-    uint public premiumAmount;
-
-    // The amount to be paid out if the risk occurs
-    uint public payoutAmount;
-
-    // The time at which the policy expires
-    uint public expirationTime;
-
-    // True if the policy has been activated
-    bool public activated;
-
-    // True if the risk has occurred
-    bool public riskOccurred;
-
-    // The constructor function - sets the owner, beneficiary, premium amount, and payout amount
-    constructor(address payable _beneficiary, uint _premiumAmount, uint _payoutAmount, uint _durationInDays) {
-        owner = payable(msg.sender);
-        beneficiary = _beneficiary;
-        premiumAmount = _premiumAmount;
-        payoutAmount = _payoutAmount;
-        expirationTime = block.timestamp + (_durationInDays * 1 days);
-    }
-
-    // The function to activate the insurance policy
-    function activate() public payable {
-        require(msg.sender == owner, "Only the owner can activate the policy.");
-        require(msg.value == premiumAmount, "Premium amount must be paid to activate the policy.");
-        require(!activated, "Policy has already been activated.");
-        activated = true;
-    }
-
-    // The function to check if the policy is still active
-    function isActive() public view returns (bool) {
-        return (activated && !riskOccurred && block.timestamp < expirationTime);
-    }
-
-    // The function to report that the risk has occurred
-    function reportRisk() public {
-        require(msg.sender == beneficiary, "Only the beneficiary can report a risk.");
-        require(activated, "Policy has not been activated.");
-        require(!riskOccurred, "Risk has already been reported.");
-        require(block.timestamp < expirationTime, "Policy has expired.");
-        riskOccurred = true;
-    }
-
-    // The function to pay out the insured amount if the risk occurs
-    function payout() public {
-        require(msg.sender == owner, "Only the owner can pay out the insured amount.");
-        require(activated, "Policy has not been activated.");
-        require(riskOccurred, "Risk has not occurred.");
-        require(block.timestamp < expirationTime, "Policy has expired.");
-        payable(beneficiary).transfer(payoutAmount);
-    }
-
-    // The fallback function - refunds any excess Ether sent to the contract
-    fallback() external payable {
-        require(msg.value > 0, "No Ether sent.");
-        owner.transfer(msg.value);
-    }
 }
