@@ -11,15 +11,15 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-pragma solidity ^0.8.0;
+
 
 import "./insurance_policy.sol";
+pragma solidity ^0.8.0;
+
 
 contract Insurance_Factory {
 
-    address owner;
-
-    uint poolBalance = 0;
+    address public owner;
     
     address[] allowedCreatorsList;
     mapping (address => bool) allowedCreators;
@@ -39,9 +39,6 @@ contract Insurance_Factory {
             // add key to creator claims map
             CreatorsPolicyMap[_allowedCreators[i]] = new Insurance_Policy[](0);
         }
-
-        //Create Insurance Pool Contract
-        // pool = new Insurance_Pool(allowedCreatorsList);
     }
 
     //MODIFIERS
@@ -62,21 +59,19 @@ contract Insurance_Factory {
 
     //FUNCTIONS
 
-    //Pool Interaction Functions
+    //Funds Pool Interaction Functions
     function getPoolBalance() public view returns (uint){
         return(address(this).balance);
     }
 
     function poolDeposit() payable public returns(uint256) {
-        poolBalance += msg.value;
         return(msg.value);
     }
 
     function poolWithdraw(uint amount) checkVendor external {
-        poolBalance -= amount;
         require(address(this).balance > amount, "Not enough to cover claim");
-        payable(msg.sender).transfer(amount);
 
+        payable(msg.sender).transfer(amount);
     }
 
     
@@ -96,8 +91,12 @@ contract Insurance_Factory {
     }
 
     //Create Policy
-    function createPolicy() checkVendor public returns(address) {
-        Insurance_Policy newPolicy = new Insurance_Policy(1, 31);
+    function createPolicy(address _beneficiary) checkVendor public returns(address) {
+        Insurance_Policy newPolicy = new Insurance_Policy(
+            address(this),
+            _beneficiary,
+            1, 
+            31);
         CreatorsPolicyMap[msg.sender].push(newPolicy);
         return(address(newPolicy));
     }

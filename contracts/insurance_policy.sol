@@ -11,12 +11,16 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+ 
 pragma solidity ^0.8.0;
 
 contract Insurance_Policy {
 
     //Contract Owner
-    address payable public owner;
+    address public owner;
+
+    //Funds Pool Address
+    address fundPool;
 
     //Beneficiary
     address payable public beneficiary;
@@ -27,19 +31,32 @@ contract Insurance_Policy {
     // The time at which the policy expires
     uint public expirationTime;
 
-    constructor(uint _payout, uint _durationInDays){
-        owner = payable(msg.sender);
-        // beneficiary = payable(_benficiary);
+    // Claimed bool
+    bool public claimed = false;
+
+    constructor(address _fundPool, address _beneficiary, uint _payout, uint _durationInDays){
+        require(_durationInDays < 2**256 - 1, "Duration too long");
+
+        owner = address(msg.sender);
+        fundPool = _fundPool;
+        beneficiary = payable(_beneficiary);
         payout_amount = _payout;
         expirationTime = block.timestamp + (_durationInDays * 1 days);
     }
 
-    function payout() public view {
-        require(msg.sender == owner);
-        require(block.timestamp < expirationTime);
+    function payout() public {
+        require(msg.sender == owner, "Not permissioned");
+        require(block.timestamp < expirationTime, "Contact expired");
+        require(claimed == false, "Contract has already paid out");
+
+        claimed = true;
 
         //TODO: Deposit money into contract
 
         //TODO: Allow beneficiary to access money
+    }
+
+    function getPayoutBalance() public view returns (uint){
+        return(address(this).balance);
     }
 }
