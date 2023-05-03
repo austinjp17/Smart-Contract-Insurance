@@ -57,9 +57,16 @@ contract Insurance_Policy {
     }
 
     function recieveClaim() public payable returns(uint) {
-        if(msg.value >= payout_amount){
-            claimed=true;
-        }
+        require(tx.origin == owner, "Must be the vendor who created the policy to issue claim");
+        require(block.timestamp < expirationTime, "Contract Expired");
+        require(claimed == false, "Policy can not be claimed twice");
+
+        //!FIX!
+        //TWO DEPOSITS THAT CUMULATIVELY SUM TO PAYOUT_AMOUNT 
+        //WILL NOT FILL CONDITION
+        // if(address(this).balance >= payout_amount){
+        claimed=true;
+        // }
         return(msg.value);
     }
 

@@ -83,26 +83,38 @@ contract Insurance_Factory {
         CreatorsPolicyMap[creator] = new Insurance_Policy[](0);
     }
 
+    //TODO: HANDLE OPEN POLICIES OF REMOVED CREATORS
+    function removeVendor(address creator) onlyOwner public {
+        allowedCreators[creator] = false;
+        delete CreatorsPolicyMap[creator];
 
-    // bool public success;
-    // uint public claimAmt = 0;
-
-    function payClaim(address payable claimAddr) public {
-        uint claimAmt = Insurance_Policy(claimAddr).payout_amount();
-        bool claimPaid = Insurance_Policy(claimAddr).claimed();
-        require(address(this).balance > claimAmt, "Not enough money to cover claim");
-        require(claimPaid == false, "Policy can not be claimed twice");
-        
-        uint success = Insurance_Policy(claimAddr).recieveClaim{value:claimAmt}();
-        
-        // require(success, "Transfer Failed");    
-        
-        
-
-        // bool success = claimAddr.transfer(claimAmt);
+        for (uint i = 0; i < allowedCreatorsList.length; i++) {
+            if (allowedCreatorsList[i] == creator) {
+                allowedCreatorsList[i] == allowedCreatorsList[allowedCreatorsList.length - 1];
+            }
+        }
+        allowedCreatorsList.pop();
     }
 
-    //Create Policy
+    //PAY CLAIM
+    //!Any privliged vender can call claim payout on any policy, even other vender policies
+    function payClaim(address payable claimAddr) public {
+        
+
+        uint claimAmt = Insurance_Policy(claimAddr).payout_amount();
+        bool claimPaid = Insurance_Policy(claimAddr).claimed();
+        address policyOriginator = Insurance_Policy(claimAddr).owner();
+        
+        assert(policyOriginator == msg.sender);
+        // require(msg.sender == policyOriginator, "Not authorized to call claim payout");
+        assert(address(this).balance > claimAmt);
+        assert(claimPaid == false);
+        
+        Insurance_Policy(claimAddr).recieveClaim{value:claimAmt}();
+        
+    }
+
+    //CREATE POLICY
     function createPolicy(uint _payoutAmt) checkVendor public returns(address) {
         Insurance_Policy newPolicy = new Insurance_Policy(
             _payoutAmt, 
