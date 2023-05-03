@@ -26,9 +26,9 @@ contract Insurance_Factory {
     mapping (address => Insurance_Policy[]) CreatorsPolicyMap;
 
     constructor(address[] memory _allowedCreators) {
+        owner = msg.sender;
         //Initalize Allowed Creator Structures
         for (uint i = 0; i < _allowedCreators.length; i++) {
-            owner = msg.sender;
 
             //add address to key list
             allowedCreatorsList.push(_allowedCreators[i]);
@@ -43,7 +43,7 @@ contract Insurance_Factory {
 
     //MODIFIERS
 
-    modifier checkOwner(){
+    modifier onlyOwner(){
         // factory owner only
         require(msg.sender == owner,
         "This function may only be called by the owners");
@@ -67,16 +67,9 @@ contract Insurance_Factory {
     function poolDeposit() payable public returns(uint256) {
         return(msg.value);
     }
-
-    function poolWithdraw(uint amount) checkVendor external {
-        require(address(this).balance > amount, "Not enough to cover claim");
-
-        payable(msg.sender).transfer(amount);
-    }
-
     
     //Vendor Interaction Functions
-    function getVendorPolicies(address creator) public view returns(Insurance_Policy[] memory) {
+    function getVendorPolicies(address creator) onlyOwner public view returns(Insurance_Policy[] memory) {
         return(CreatorsPolicyMap[creator]);
     } 
 
@@ -84,18 +77,35 @@ contract Insurance_Factory {
         return allowedCreatorsList;
     }
 
-    function addVendor(address creator) checkOwner public {
+    function addVendor(address creator) onlyOwner public {
         allowedCreatorsList.push(creator);
         allowedCreators[creator] = true;
         CreatorsPolicyMap[creator] = new Insurance_Policy[](0);
     }
 
+
+    // bool public success;
+    // uint public claimAmt = 0;
+
+    function payClaim(address payable claimAddr) public {
+        uint claimAmt = Insurance_Policy(claimAddr).payout_amount();
+        bool claimPaid = Insurance_Policy(claimAddr).claimed();
+        require(address(this).balance > claimAmt, "Not enough money to cover claim");
+        require(claimPaid == false, "Policy can not be claimed twice");
+        
+        uint success = Insurance_Policy(claimAddr).recieveClaim{value:claimAmt}();
+        
+        // require(success, "Transfer Failed");    
+        
+        
+
+        // bool success = claimAddr.transfer(claimAmt);
+    }
+
     //Create Policy
-    function createPolicy(address _beneficiary) checkVendor public returns(address) {
+    function createPolicy(uint _payoutAmt) checkVendor public returns(address) {
         Insurance_Policy newPolicy = new Insurance_Policy(
-            address(this),
-            _beneficiary,
-            1, 
+            _payoutAmt, 
             31);
         CreatorsPolicyMap[msg.sender].push(newPolicy);
         return(address(newPolicy));

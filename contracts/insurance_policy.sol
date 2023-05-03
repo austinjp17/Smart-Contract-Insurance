@@ -34,12 +34,14 @@ contract Insurance_Policy {
     // Claimed bool
     bool public claimed = false;
 
-    constructor(address _fundPool, address _beneficiary, uint _payout, uint _durationInDays){
+    constructor(uint _payout, uint _durationInDays){
         require(_durationInDays < 2**256 - 1, "Duration too long");
 
-        owner = address(msg.sender);
-        fundPool = _fundPool;
-        beneficiary = payable(_beneficiary);
+        owner = address(tx.origin);
+        //owner is vendor who initiates policy creation
+        //msg.sender = factory contract
+
+        // beneficiary = payable(_beneficiary);
         payout_amount = _payout;
         expirationTime = block.timestamp + (_durationInDays * 1 days);
     }
@@ -51,9 +53,14 @@ contract Insurance_Policy {
 
         claimed = true;
 
-        //TODO: Deposit money into contract
-
         //TODO: Allow beneficiary to access money
+    }
+
+    function recieveClaim() public payable returns(uint) {
+        if(msg.value >= payout_amount){
+            claimed=true;
+        }
+        return(msg.value);
     }
 
     function getPayoutBalance() public view returns (uint){
