@@ -46,27 +46,19 @@ contract Insurance_Policy {
         expirationTime = block.timestamp + (_durationInDays * 1 days);
     }
 
-    function payout() public {
-        require(msg.sender == owner, "Not permissioned");
-        require(block.timestamp < expirationTime, "Contact expired");
-        require(claimed == false, "Contract has already paid out");
-
-        claimed = true;
-
-        //TODO: Allow beneficiary to access money
-    }
-
     function recieveClaim() public payable returns(uint) {
         require(tx.origin == owner, "Must be the vendor who created the policy to issue claim");
         require(block.timestamp < expirationTime, "Contract Expired");
         require(claimed == false, "Policy can not be claimed twice");
 
-        //!FIX!
+        //!FIX?
         //TWO DEPOSITS THAT CUMULATIVELY SUM TO PAYOUT_AMOUNT 
         //WILL NOT FILL CONDITION
         // if(address(this).balance >= payout_amount){
         claimed=true;
         // }
+
+        //TODO: Allow beneficiary access to money
         return(msg.value);
     }
 
