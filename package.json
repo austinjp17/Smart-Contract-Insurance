@@ -17,6 +17,7 @@
   "homepage": "https://github.com/austinjp17/Smart-Contract-Insurance/README.md",
   "dependencies": {
     "ganache-cli": "^6.12.2",
+    "generated-badges": "^1.0.11",
     "truffle": "^5.1.65"
   },
   "devDependencies": {

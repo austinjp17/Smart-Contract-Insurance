@@ -26,7 +26,20 @@ jobs:
       run: |
         npm install
 
+    - name: Generated Badges (Build)
+      uses: jaywcjlove/generated-badges@v1.0.10
+      with:
+        label: build
+        status: green
+        output: ./.github/workflows/build.svg
+
     - name: Test
       run: |
         ./.github/workflows/run_tests.sh
 
+    - name: Generated Badges (Test)
+      uses: jaywcjlove/generated-badges@v1.0.10
+      with:
+        label: test
+        status: green
+        output: ./.github/workflows/test.svg
