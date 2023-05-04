@@ -31,7 +31,7 @@ jobs:
       with:
         label: build
         status: green
-        output: ./.github/workflows/build.svg
+        output: ./badges/build.svg
 
     - name: Test
       run: |
@@ -42,9 +42,10 @@ jobs:
       with:
         label: test
         status: green
-        output: ./.github/workflows/test.svg
+        output: ./badges/test.svg
 
     - name: Deploy
       uses: peaceiris/actions-gh-pages@v3
       with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
         publish_dir: ./.github/workflows
