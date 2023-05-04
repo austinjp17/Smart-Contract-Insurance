@@ -9,6 +9,7 @@ contract("factory", () => {
 
     before(async () => {
         factoryInstance = await factory.deployed()
+        policyInstance = await policy.deployed()
         accounts = await web3.eth.getAccounts();
         
         alice = accounts[1]
@@ -16,8 +17,10 @@ contract("factory", () => {
         claim_beneficiary = accounts[3]
         owner = await factoryInstance.owner.call()
         
-        deposit_amt = 10;
-        claim_amt = 8;
+        deposit_amt = 12;
+        claim_amt = 10;
+        policyDuration = 31;
+        daysExtension = 5;
     })
 
     beforeEach(async () => {
@@ -111,7 +114,7 @@ contract("factory", () => {
 
     //Create Policy: Owner
     it("Owner Policy Creation", async () => {
-        await factoryInstance.createPolicy(claim_amt, claim_beneficiary);
+        await factoryInstance.createPolicy(claim_amt, claim_beneficiary, policyDuration);
         policyAddr = (await factoryInstance.getVendorPolicies(owner))[0]
         actualPolicies = await factoryInstance.getVendorPolicies(owner)
         assert.include(actualPolicies, policyAddr, "Policy not found in owners policies")
@@ -121,7 +124,7 @@ contract("factory", () => {
     //Create Policy: Privilged User
     it("Priviliged Vendor Policy Creation", async () => {
         
-        await factoryInstance.createPolicy(claim_amt,claim_beneficiary, {from: alice});
+        await factoryInstance.createPolicy(claim_amt,claim_beneficiary, 5, {from: alice});
         policyAddr = (await factoryInstance.getVendorPolicies(alice))[0]
         
         
@@ -134,7 +137,7 @@ contract("factory", () => {
     it("Common User CAN'T Create Policy", async () => {
         
         try{
-            await factoryInstance.createPolicy(claim_amt, claim_beneficiary, {from: bob});
+            await factoryInstance.createPolicy(claim_amt, claim_beneficiary, policyDuration,{from: bob});
             assert.fail("Unprivilaged User can't create policy.")
             policyAddr = (await factoryInstance.getVendorPolicies(alice))[0]
         } catch (error) {
@@ -150,24 +153,25 @@ contract("factory", () => {
     it("Owner Pay Claim", async () => {
         policyAddr = (await factoryInstance.getVendorPolicies(owner))[0]
         policyInstance = await policy.at(policyAddr)
+        haircut = await factoryInstance.premiumHaircut()
+        claim_amt = (claim_amt * haircut)/10
 
         const beneficiary = await policyInstance.beneficiary()
         assert.equal(beneficiary, claim_beneficiary, "Unexpected beneficiary")
-
+        
         const init_balance = BigInt(await web3.eth.getBalance(claim_beneficiary))
-
+        
         await factoryInstance.payClaim(policyAddr)
 
         const finalBalance = BigInt(await web3.eth.getBalance(claim_beneficiary))
+        
+        const difference = finalBalance - init_balance
 
-        // policyBal = (await policyInstance.getPayoutBalance()).words[0]
-        // assert.equal(init_balance, finalBalance, "Amount sent doesn't match claim amount")
-
-        assert.equal(finalBalance - init_balance, claim_amt, "Amount sent doesn't match claim amount")
+        assert.equal(Number(difference), claim_amt, "Amount sent doesn't match claim amount")
     })
 
     //Attempt to pay out same claim
-    it("Twice Claimed Policy", async () => {
+    it("Twice Claimed Policy Failure", async () => {
         policyAddr = (await factoryInstance.getVendorPolicies(owner))[0]
         policyInstance = await policy.at(policyAddr)
 
@@ -185,7 +189,7 @@ contract("factory", () => {
 
     //Paying claim in seperate deposits
     it("Split Deposit Claim Payment", async () => {
-        await factoryInstance.createPolicy(50, claim_beneficiary);
+        await factoryInstance.createPolicy(50, claim_beneficiary, policyDuration);
         policyAddr = (await factoryInstance.getVendorPolicies(owner))[1]
         policyInstance = await policy.at(policyAddr)
 
@@ -196,8 +200,8 @@ contract("factory", () => {
     })
 
     //Vendor calls different vendor claim
-    it("Cross-Vendor Claim Call Attempt", async () => {
-        await factoryInstance.createPolicy(100, claim_beneficiary, {from: alice})
+    it("Cross-Vendor Claim Call Failue", async () => {
+        await factoryInstance.createPolicy(100, claim_beneficiary, policyDuration,{from: alice})
         // alices 2nd claim created
 
         policyAddr = (await factoryInstance.getVendorPolicies(alice))[1]
@@ -217,6 +221,58 @@ contract("factory", () => {
 
     })
 
+    //First Policy Extension
+    it("First Policy Extension", async () => {
+
+        const init_expiration = await policyInstance.expirationTime()
+        await policyInstance.extendDuration(daysExtension);
+        const first_expiration = await policyInstance.expirationTime()
+
+        const dayDifference = (first_expiration - init_expiration)/86400
+
+        assert.equal(dayDifference, daysExtension)
+    })
+
+    
+    // //Second Policy Extension
+    // it("Second Policy Extension From Originator", async () => {
+    //     const originator = await policyInstance.owner()
+    //     const init_expiration = await policyInstance.expirationTime()
+    //     await policyInstance.extendDuration(daysExtension, {from: originator});
+    //     const first_expiration = await policyInstance.expirationTime()
+
+    //     const dayDifference = (first_expiration - init_expiration)/86400
+
+    //     assert.equal(dayDifference, daysExtension)
+    // })
+
+    // //Third Policy Extension
+    // it("Third Policy Extension", async () => {
+
+    //     const init_expiration = await policyInstance.expirationTime()
+    //     await policyInstance.extendDuration(daysExtension);
+    //     const first_expiration = await policyInstance.expirationTime()
+
+    //     const dayDifference = (first_expiration - init_expiration)/86400
+
+    //     assert.equal(dayDifference, daysExtension)
+    // })
+
+    //Fourth Policy Extensio:
+    it("Fourth Policy Extension Failure", async () => {
+
+        try {
+            await policyInstance.extendDuration(daysExtension);
+            assert.fail("4th Policy Extension should fail")
+
+        } catch (error) {
+            assert.include(
+                error.message,
+                "revert",
+                "Expected revert error"
+            );
+        } 
+    })
 
 
 });

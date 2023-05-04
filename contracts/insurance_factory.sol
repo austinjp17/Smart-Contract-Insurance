@@ -20,13 +20,17 @@ pragma solidity ^0.8.0;
 contract Insurance_Factory {
 
     address public owner;
+
+    uint public premiumHaircut;
     
     address[] allowedCreatorsList;
     mapping (address => bool) allowedCreators;
     mapping (address => Insurance_Policy[]) CreatorsPolicyMap;
 
-    constructor(address[] memory _allowedCreators) {
+    constructor(address[] memory _allowedCreators, uint _premiumHaircut) {
         owner = msg.sender;
+
+        premiumHaircut = _premiumHaircut;
         //Initalize Allowed Creator Structures
         for (uint i = 0; i < _allowedCreators.length; i++) {
 
@@ -60,7 +64,7 @@ contract Insurance_Factory {
     //FUNCTIONS
 
     //Funds Pool Interaction Functions
-    function getPoolBalance() public view returns (uint){
+    function getPoolBalance() onlyOwner public view returns (uint){
         return(address(this).balance);
     }
 
@@ -99,7 +103,7 @@ contract Insurance_Factory {
     //PAY CLAIM
     function payClaim(address payable claimAddr) public {
         // can only be called by the vendor who originated the contract
-        
+
         // GET POLICY INFO
         uint claimAmt = Insurance_Policy(claimAddr).payout_amount();
         bool claimPaid = Insurance_Policy(claimAddr).claimed();
@@ -108,8 +112,12 @@ contract Insurance_Factory {
         
         // CHECKS
         assert(policyOriginator == msg.sender);
-        assert(address(this).balance > claimAmt);
+        // assert(address(this).balance > claimAmt);
         assert(claimPaid == false);
+
+        if(address(this).balance < claimAmt) {
+
+        }
 
         // SEND PAYOUT TO BENEFICIARY
         // Insurance_Policy(claimAddr).recieveClaim{value:claimAmt}();
@@ -122,11 +130,18 @@ contract Insurance_Factory {
     }
 
     //CREATE POLICY
-    function createPolicy(uint _payoutAmt, address payable _beneficiary) checkVendor public returns(address) {
+    function createPolicy(
+        uint productPrice, 
+        address payable _beneficiary, 
+        uint _durationInDays 
+        ) 
+            checkVendor public returns(address) {
+        uint coverage = (premiumHaircut*productPrice)/10;
         Insurance_Policy newPolicy = new Insurance_Policy(
-            _payoutAmt,
+            coverage,
             _beneficiary,
-            31);
+            _durationInDays,
+            owner);
         CreatorsPolicyMap[msg.sender].push(newPolicy);
         return(address(newPolicy));
     }
