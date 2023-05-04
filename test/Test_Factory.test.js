@@ -93,7 +93,7 @@ contract("factory", () => {
     })
 
     //removeVendor: Privliged Vendor
-    it("Privliged Vendor Remove Vendor", async () => {
+    it("Privliged Vendor CAN'T Remove Vendor", async () => {
         try {
             await factoryInstance.removeVendor(alice, {from:alice})
             assert.fail("Vendor shouldn't be removed")
@@ -111,7 +111,7 @@ contract("factory", () => {
 
     //Create Policy: Owner
     it("Owner Policy Creation", async () => {
-        await factoryInstance.createPolicy(claim_amt);
+        await factoryInstance.createPolicy(claim_amt, claim_beneficiary);
         policyAddr = (await factoryInstance.getVendorPolicies(owner))[0]
         actualPolicies = await factoryInstance.getVendorPolicies(owner)
         assert.include(actualPolicies, policyAddr, "Policy not found in owners policies")
@@ -121,7 +121,7 @@ contract("factory", () => {
     //Create Policy: Privilged User
     it("Priviliged Vendor Policy Creation", async () => {
         
-        await factoryInstance.createPolicy(claim_amt, {from: alice});
+        await factoryInstance.createPolicy(claim_amt,claim_beneficiary, {from: alice});
         policyAddr = (await factoryInstance.getVendorPolicies(alice))[0]
         
         
@@ -131,10 +131,10 @@ contract("factory", () => {
     })
 
     //Create Policy: Common User
-    it("Common User Policy Creation", async () => {
+    it("Common User CAN'T Create Policy", async () => {
         
         try{
-            await factoryInstance.createPolicy(claim_amt, {from: bob});
+            await factoryInstance.createPolicy(claim_amt, claim_beneficiary, {from: bob});
             assert.fail("Unprivilaged User can't create policy.")
             policyAddr = (await factoryInstance.getVendorPolicies(alice))[0]
         } catch (error) {
@@ -146,28 +146,23 @@ contract("factory", () => {
         }
     })
 
-    //Can Pay Test Claim
-    it("Pool Balance Covers Claim", async () => {
-        policyAddr = (await factoryInstance.getVendorPolicies(owner))[0]
-        policyInstance = await policy.at(policyAddr)
-
-        policyAmt = (await policyInstance.payout_amount()).words[0]
-        factoryBal = (await factoryInstance.getPoolBalance()).words[0]
-        assert(policyAmt < factoryBal, "Can't payout test claim")
-    })
-
     // Pay Claim: Owner
-    it("Pay Test Claim", async () => {
+    it("Owner Pay Claim", async () => {
         policyAddr = (await factoryInstance.getVendorPolicies(owner))[0]
         policyInstance = await policy.at(policyAddr)
 
-        const init_balance = await web3.eth.getBalance(policyAddr)
+        const beneficiary = await policyInstance.beneficiary()
+        assert.equal(beneficiary, claim_beneficiary, "Unexpected beneficiary")
+
+        const init_balance = BigInt(await web3.eth.getBalance(claim_beneficiary))
 
         await factoryInstance.payClaim(policyAddr)
 
-        const finalBalance = await web3.eth.getBalance(policyAddr)
+        const finalBalance = BigInt(await web3.eth.getBalance(claim_beneficiary))
 
-        policyBal = (await policyInstance.getPayoutBalance()).words[0]
+        // policyBal = (await policyInstance.getPayoutBalance()).words[0]
+        // assert.equal(init_balance, finalBalance, "Amount sent doesn't match claim amount")
+
         assert.equal(finalBalance - init_balance, claim_amt, "Amount sent doesn't match claim amount")
     })
 
@@ -190,7 +185,7 @@ contract("factory", () => {
 
     //Paying claim in seperate deposits
     it("Split Deposit Claim Payment", async () => {
-        await factoryInstance.createPolicy(50);
+        await factoryInstance.createPolicy(50, claim_beneficiary);
         policyAddr = (await factoryInstance.getVendorPolicies(owner))[1]
         policyInstance = await policy.at(policyAddr)
 
@@ -202,10 +197,12 @@ contract("factory", () => {
 
     //Vendor calls different vendor claim
     it("Cross-Vendor Claim Call Attempt", async () => {
-        await factoryInstance.createPolicy(100, {from: alice})
+        await factoryInstance.createPolicy(100, claim_beneficiary, {from: alice})
+        // alices 2nd claim created
+
         policyAddr = (await factoryInstance.getVendorPolicies(alice))[1]
         policyOriginator = await (await policy.at(policyAddr)).owner()
-
+        assert.notEqual(policyOriginator, owner, "Someone other than originator should call for claim")
         // assert.equal(1, policyOriginator, "?")
         try {
             await factoryInstance.payClaim(policyAddr, {from: owner})

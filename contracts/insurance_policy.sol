@@ -34,35 +34,40 @@ contract Insurance_Policy {
     // Claimed bool
     bool public claimed = false;
 
-    constructor(uint _payout, uint _durationInDays){
+    constructor(uint _payout, address payable _beneficiary, uint _durationInDays){
         require(_durationInDays < 2**256 - 1, "Duration too long");
 
         owner = address(tx.origin);
         //owner is vendor who initiates policy creation
         //msg.sender = factory contract
 
-        // beneficiary = payable(_beneficiary);
+        beneficiary = payable(_beneficiary);
         payout_amount = _payout;
         expirationTime = block.timestamp + (_durationInDays * 1 days);
     }
 
+    // CURRENTLY UNUSED -- Claim paid directly to beneficiary from factory
     function recieveClaim() public payable returns(uint) {
-        require(tx.origin == owner, "Must be the vendor who created the policy to issue claim");
-        require(block.timestamp < expirationTime, "Contract Expired");
-        require(claimed == false, "Policy can not be claimed twice");
-
+        // require(tx.origin == owner, "Must be the vendor who created the policy to issue claim");
+        // require(block.timestamp < expirationTime, "Contract Expired");
+        // require(claimed == false, "Policy can not be claimed twice");
+        assert(tx.origin == owner);
+        assert(block.timestamp < expirationTime);
+        assert(claimed == false);
         //!FIX?
         //TWO DEPOSITS THAT CUMULATIVELY SUM TO PAYOUT_AMOUNT 
         //WILL NOT FILL CONDITION
         // if(address(this).balance >= payout_amount){
-        claimed=true;
+        
         // }
-
-        //TODO: Allow beneficiary access to money
+        
+        beneficiary.transfer(payout_amount);
+    
         return(msg.value);
     }
 
-    function getPayoutBalance() public view returns (uint){
-        return(address(this).balance);
+
+    function setClaimed() public {
+        claimed = true;
     }
 }
