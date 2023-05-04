@@ -1,2 +1,6 @@
 checks:
     - name: eth-gas-reporter/codechecks
+      options:
+        - path: "./contracts/*.sol"
+        - path: "./migrations/*.js"
+        - path: "./test/*.js"

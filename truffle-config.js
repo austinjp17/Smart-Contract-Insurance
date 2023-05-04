@@ -106,6 +106,7 @@ module.exports = {
       excludeContracts: []
     }
   },
+  plugins: ["solidity-coverage"],
 
   // Configure your compilers
   compilers: {

@@ -5,7 +5,7 @@
   "main": "truffle-config.js",
   "scripts": {
     "prepare": "npx truffle compile",
-    "test": "bash ./scripts/run_tests.sh"
+    "test": "bash ./.github/workflows/run_tests.sh"
   },
   "repository": {
     "type": "git",
@@ -20,8 +20,8 @@
     "truffle": "^5.1.65"
   },
   "devDependencies": {
-    "@codechecks/client": "^0.0.50",
-    "coveralls": "^3.1.0",
+    "@codechecks/client": "^0.1.12",
+    "coveralls": "^3.1.1",
     "eth-gas-reporter": "^0.0.4",
     "json5": "^2.2.3",
     "solidity-coverage": "^0.7.22"

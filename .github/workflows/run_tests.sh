@@ -41,5 +41,4 @@ fi
 
 npx truffle version
 npx truffle test "$@"
-npx codechecks
 npx truffle run coverage
