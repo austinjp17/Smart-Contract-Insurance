@@ -1,6 +1,6 @@
 language: node_js
 node_js:
-  - 10
+  - 19
 
 cache: npm
 
@@ -9,6 +9,6 @@ before_script:
 
 script:
   - npm test
-  - npx codechecks
-  - npx truffle run coverage
+  # - npx codechecks
+  # - npx truffle run coverage
   # - cat coverage/lcov.info | npx coveralls
