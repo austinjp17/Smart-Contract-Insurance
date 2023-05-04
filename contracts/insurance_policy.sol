@@ -15,8 +15,8 @@ contract Insurance_Policy {
     //Contract Owner
     address public owner;
 
-    //Funds Pool Address
-    address fundPool;
+    //Factory Owner
+    address public factoryOwner;
 
     //Beneficiary
     address payable public beneficiary;
@@ -30,43 +30,42 @@ contract Insurance_Policy {
     // Claimed bool
     bool public claimed = false;
 
-    constructor(uint _payout, uint _durationInDays){
-        require(_durationInDays < 2**256 - 1, "Duration too long");
+    // Duration extended bool
+    uint8 public extensions = 0;
 
+    constructor(uint _payout, address payable _beneficiary, uint8 _durationInDays, address _factoryOwner){
+        require(_durationInDays < 2**8 - 1, "Duration too long");
+        factoryOwner = _factoryOwner;
         owner = address(tx.origin);
         //owner is vendor who initiates policy creation
         //msg.sender = factory contract
 
-        // beneficiary = payable(_beneficiary);
+        beneficiary = payable(_beneficiary);
         payout_amount = _payout;
         expirationTime = block.timestamp + (_durationInDays * 1 days);
     }
 
-    function payout() public {
-        require(msg.sender == owner, "Not permissioned");
-        require(block.timestamp < expirationTime, "Contact expired");
-        require(claimed == false, "Contract has already paid out");
-
+    function setClaimed() public {
         claimed = true;
-
-        //TODO: Allow beneficiary to access money
     }
 
-    function recieveClaim() public payable returns(uint) {
-        require(tx.origin == owner, "Must be the vendor who created the policy to issue claim");
-        require(block.timestamp < expirationTime, "Contract Expired");
-        require(claimed == false, "Policy can not be claimed twice");
+    function extendDuration(uint8 extentionInDays) public {
+        require(extentionInDays < 2**8 - 1, "Duration too long");
+        
+        //Restricted to factoryOwner calls if expired
+        if(block.timestamp < expirationTime){
+            assert(msg.sender == owner || msg.sender == factoryOwner);
+        } else {
+            assert(msg.sender == factoryOwner);
+        }
+        
+        //3 extensions allowed
+        assert(extensions < 1);
 
-        //!FIX!
-        //TWO DEPOSITS THAT CUMULATIVELY SUM TO PAYOUT_AMOUNT 
-        //WILL NOT FILL CONDITION
-        // if(address(this).balance >= payout_amount){
-        claimed=true;
-        // }
-        return(msg.value);
+
+        expirationTime += (extentionInDays * 1 days);
+        extensions += 1;
     }
 
-    function getPayoutBalance() public view returns (uint){
-        return(address(this).balance);
-    }
+
 }

@@ -16,13 +16,17 @@ pragma solidity ^0.8.0;
 contract Insurance_Factory {
 
     address public owner;
+
+    uint public premiumHaircut;
     
     address[] allowedCreatorsList;
     mapping (address => bool) allowedCreators;
     mapping (address => Insurance_Policy[]) CreatorsPolicyMap;
 
-    constructor(address[] memory _allowedCreators) {
+    constructor(address[] memory _allowedCreators, uint _premiumHaircut) {
         owner = msg.sender;
+
+        premiumHaircut = _premiumHaircut;
         //Initalize Allowed Creator Structures
         for (uint i = 0; i < _allowedCreators.length; i++) {
 
@@ -56,7 +60,7 @@ contract Insurance_Factory {
     //FUNCTIONS
 
     //Funds Pool Interaction Functions
-    function getPoolBalance() public view returns (uint){
+    function getPoolBalance() onlyOwner public view returns (uint){
         return(address(this).balance);
     }
 
@@ -93,29 +97,51 @@ contract Insurance_Factory {
     }
 
     //PAY CLAIM
-    //!Any privliged vender can call claim payout on any policy, even other vender policies
     function payClaim(address payable claimAddr) public {
-        
+        // can only be called by the vendor who originated the contract
 
+        // GET POLICY INFO
         uint claimAmt = Insurance_Policy(claimAddr).payout_amount();
         bool claimPaid = Insurance_Policy(claimAddr).claimed();
         address policyOriginator = Insurance_Policy(claimAddr).owner();
+        address payable beneficiary = Insurance_Policy(claimAddr).beneficiary();
         
+        // CHECKS
         assert(policyOriginator == msg.sender);
-        // require(msg.sender == policyOriginator, "Not authorized to call claim payout");
-        assert(address(this).balance > claimAmt);
+        // assert(address(this).balance > claimAmt);
         assert(claimPaid == false);
-        
-        Insurance_Policy(claimAddr).recieveClaim{value:claimAmt}();
-        
+
+        if(address(this).balance < claimAmt) {
+
+        }
+
+        // SEND PAYOUT TO BENEFICIARY
+        // Insurance_Policy(claimAddr).recieveClaim{value:claimAmt}();
+        // Insurance_Policy(claimAddr).setClaimed();
+        //!? Send to beneficiary instead of policy contract? 
+        beneficiary.transfer(claimAmt);
+
+        // UPDATE POLICY CLAIMED STATE
+        // Insurance_Policy(claimAddr).setClaimed();
     }
 
     //CREATE POLICY
-    function createPolicy(uint _payoutAmt) checkVendor public returns(address) {
+    function createPolicy(
+        uint productPrice, 
+        address payable _beneficiary, 
+        uint8 _durationInDays 
+        ) 
+            checkVendor public returns(address) {
+        uint coverage = (premiumHaircut*productPrice)/10;
         Insurance_Policy newPolicy = new Insurance_Policy(
-            _payoutAmt, 
-            31);
+            coverage,
+            _beneficiary,
+            _durationInDays,
+            owner);
         CreatorsPolicyMap[msg.sender].push(newPolicy);
         return(address(newPolicy));
     }
+
+
+    
 }
