@@ -208,7 +208,7 @@ contract("factory", () => {
 
         // assert.equal(1, policyOriginator, "?")
         try {
-            factoryInstance.payClaim(policyAddr, {from: owner})
+            await factoryInstance.payClaim(policyAddr, {from: owner});
             assert.fail("Shouldn't issue claim")
         } catch(error) {
             assert.include(
