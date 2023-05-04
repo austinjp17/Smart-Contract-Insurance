@@ -41,4 +41,3 @@ fi
 
 npx truffle version
 npx truffle test "$@"
-npx truffle run coverage
