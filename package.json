@@ -1,0 +1,30 @@
+{
+  "name": "nightfall",
+  "version": "1.0.0",
+  "description": "Insurance via Ethereum Smart Contracts", 
+  "main": "truffle-config.js",
+  "scripts": {
+    "prepare": "npx truffle compile",
+    "test": "bash ./scripts/run_tests.sh"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/austinjp17/Smart-Contract-Insurance"
+  },
+  "author": "Markus Waas",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/austinjp17/Smart-Contract-Insurance/issues"
+  },
+  "homepage": "https://github.com/austinjp17/Smart-Contract-Insurance/README.md",
+  "dependencies": {
+    "ganache-cli": "^6.12.2",
+    "truffle": "^5.8.4"
+  },
+  "devDependencies": {
+    "@codechecks/client": "^0.1.10",
+    "coveralls": "^3.1.0",
+    "eth-gas-reporter": "^0.2.17",
+    "solidity-coverage": "^0.7.5"
+  }
+}
