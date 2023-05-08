@@ -1,3 +1,8 @@
+const { initial } = require("lodash");
+const truffleAssert = require("truffle-assertions");
+
+
+
 const factory = artifacts.require("Insurance_Factory");
 const policy = artifacts.require("Insurance_Policy");
 //assert.equal(actual, expected)
@@ -15,10 +20,14 @@ contract("factory", () => {
         claim_beneficiary = accounts[3]
         owner = await factoryInstance.owner.call()
         
-        deposit_amt = 12;
+        deposit_amt = 6;
+        //two deposits
         claim_amt = 10;
         policyDuration = 31;
         daysExtension = 5;
+        vendorHC = 20;
+
+        assert(owner, accounts[0], "Unexpected Owner")
     })
 
     beforeEach(async () => {
@@ -27,17 +36,32 @@ contract("factory", () => {
         // alice = accounts[0];
     });
 
-    // Deposit Test
+    // Deposit Test: Recieve Function
     it("Deposit into Pool", async () => {
         
         //Get balance before
-        const init_balance = (await factoryInstance.getPoolBalance()).words[0]
+        const init_balance = await web3.eth.getBalance(factoryInstance.address)
         
         //Deposit
-        await factoryInstance.poolDeposit({value: deposit_amt})
+        await factoryInstance.sendTransaction({value: deposit_amt})
         
         //Get balance after
-        const post_balance = (await factoryInstance.getPoolBalance()).words[0]
+        const post_balance = await web3.eth.getBalance(factoryInstance.address)
+        assert.equal(post_balance - init_balance, deposit_amt, "accounts don't match")
+        // assert.equal(balance, deposit_amt, "Pool doesn't match deposit amount.")
+    })
+
+    //Deposit Test: Fallback Function
+    it("Deposit into Pool: Fallback", async () => {
+        
+        //Get balance before
+        const init_balance = await web3.eth.getBalance(factoryInstance.address)
+        
+        //Deposit
+        await factoryInstance.sendTransaction({value: deposit_amt})
+        
+        //Get balance after
+        const post_balance = await web3.eth.getBalance(factoryInstance.address)
         assert.equal(post_balance - init_balance, deposit_amt, "accounts don't match")
         // assert.equal(balance, deposit_amt, "Pool doesn't match deposit amount.")
     })
@@ -45,7 +69,7 @@ contract("factory", () => {
     //addVendor: random
     it("Outsider Adds Vendor", async () => {
         try {
-            await factoryInstance.addVendor(bob, {from: alice});
+            await factoryInstance.addVendor(bob, vendorHC, {from: alice});
             assert.fail("Commoner Add Vendor Error");
         } catch (error) {
             assert.include(
@@ -60,12 +84,28 @@ contract("factory", () => {
 
     //addVendor: Owner
     it("Owner Add Vendor", async () => {
-        await factoryInstance.addVendor(alice)
-        await factoryInstance.addVendor(bob)
+        await factoryInstance.addVendor(alice, vendorHC)
+        await factoryInstance.addVendor(bob, vendorHC)
         const actual = await factoryInstance.getVendors()
 
         assert.include(actual, alice, "Vendor should have been added")
         assert.include(actual, bob, "Vendor should have been added")
+    })
+
+    //removeVendor: Privleged User
+    it("Privleged User Remove Vendor Fail", async () => {
+        try{
+            await factoryInstance.removeVendor(bob, {from: alice})
+            assert.fail("Vendor removal by priviged user should fail")
+        } catch (error) {
+            assert.include(
+                error.message,
+                "revert",
+                "Expected revert error"
+                );}
+            
+        const vendorList = await factoryInstance.getVendors()
+        assert.include(vendorList, bob, "Vendor should have been removed")
     })
 
     //removeVendor: Owner
@@ -79,7 +119,7 @@ contract("factory", () => {
     //addVendor: Privliged Vendor
     it("Privaleged Vendor CAN'T add Vendor", async () => {
         try {
-            await factoryInstance.addVendor(bob, {from: alice})
+            await factoryInstance.addVendor(bob,vendorHC, {from: alice})
             assert.fail("Commoner Add Vendor Error");
         } catch (error) {
             assert.include(
@@ -112,11 +152,13 @@ contract("factory", () => {
 
     //Create Policy: Owner
     it("Owner Policy Creation", async () => {
-        await factoryInstance.createPolicy(claim_amt, claim_beneficiary, policyDuration);
+        newPolicy = await factoryInstance.createPolicy(claim_amt, claim_beneficiary, policyDuration);
         policyAddr = (await factoryInstance.getVendorPolicies(owner))[0]
         actualPolicies = await factoryInstance.getVendorPolicies(owner)
         assert.include(actualPolicies, policyAddr, "Policy not found in owners policies")
         assert.equal(actualPolicies.length, 1, "Array doesn't contain 1 element")
+
+        
     })
 
     //Create Policy: Privilged User
@@ -149,13 +191,15 @@ contract("factory", () => {
 
     // Pay Claim: Owner
     it("Owner Pay Claim", async () => {
+        // balance = await web3.eth.getBalance(factoryInstance.address)
+        
         policyAddr = (await factoryInstance.getVendorPolicies(owner))[0]
         policyInstance = await policy.at(policyAddr)
-        haircut = await factoryInstance.premiumHaircut()
-        claim_amt = (claim_amt * haircut)/10
-
+        claim_amt = await (await policy.at(policyAddr)).payout_amount()
+        // console.log("CLAIM:",claim_amt)
         const beneficiary = await policyInstance.beneficiary()
         assert.equal(beneficiary, claim_beneficiary, "Unexpected beneficiary")
+        
         
         const init_balance = BigInt(await web3.eth.getBalance(claim_beneficiary))
         
@@ -191,8 +235,8 @@ contract("factory", () => {
         policyAddr = (await factoryInstance.getVendorPolicies(owner))[1]
         policyInstance = await policy.at(policyAddr)
 
-        await factoryInstance.poolDeposit({value:30})
-        await factoryInstance.poolDeposit({value:20})
+        await factoryInstance.sendTransaction({value:30})
+        await factoryInstance.sendTransaction({value:20})
         await factoryInstance.payClaim(policyAddr)
 
     })
@@ -257,7 +301,7 @@ contract("factory", () => {
     // })
 
     //Fourth Policy Extensio:
-    it("Fourth Policy Extension Failure", async () => {
+    it("Second Policy Extension Failure", async () => {
 
         try {
             await policyInstance.extendDuration(daysExtension);
@@ -272,5 +316,41 @@ contract("factory", () => {
         } 
     })
 
+    it("Gas Cost Estimation:", async () => {
+
+        const factoryCost = await factory.new.estimateGas([owner], [vendorHC])
+        // console.log("Factory Creation Gas Estimate:",factoryCost)
+        
+
+        const policyCost = await factoryInstance.createPolicy.estimateGas(claim_amt, claim_beneficiary, policyDuration)
+        // console.log("Create Policy Gas Cost:",policyCost)
+    })
+
+    it("Change Vendor Haircut", async () => {
+        new_HC = 42
+        init_HC = Number((await factoryInstance.allowedCreators(alice)).premiumHaircut)
+        await factoryInstance.setHaircut(alice, new_HC)
+
+        post_HC = Number((await factoryInstance.allowedCreators(alice)).premiumHaircut)
+        assert.equal(post_HC, new_HC, "Expected haircut to be changed.")
+    })
+
+    //Kill: Unprivleged
+    it("Contract Self Destruct: Unprivleged fail", async () => {
+        // Get initial balances
+        init_code = await web3.eth.getCode(factoryInstance.address);
+        assert.notEqual(init_code, '0x', "No contract code found initally")
+        truffleAssert.reverts(factoryInstance.kill({from: alice}))
+        
+    });
+
+    //Kill: Owner
+    it("Contract Self Destruct: Owner", async () => {
+        // Get initial balances
+        init_code = await web3.eth.getCode(factoryInstance.address);
+        assert.notEqual(init_code, '0x', "No contract code found initally")
+        await factoryInstance.kill()
+        assert.equal(await web3.eth.getCode(factoryInstance.address), "0x", "Contract not killed")
+    });
 
 });

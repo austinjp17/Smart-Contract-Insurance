@@ -1,13 +1,5 @@
-/*   SPDX-License-Identifier: GPL-3.0-or-later
- *   Copyright (C) Nightfall.
- *   Permission is granted to copy, distribute and/or modify this document
- *   under the terms of the GNU Free Documentation License, Version 1.3
- *   or any later version published by the Free Software Foundation;
- *   with no Invariant Sections, no Front-Cover Texts, and no Back-Cover Texts.
- *   A copy of the license is included in the section entitled "GNU
- *   Free Documentation License".
- */
- 
+//SPDX-License-Identifier: UNLICENSED
+
 pragma solidity ^0.8.0;
 
 contract Insurance_Policy {
@@ -22,7 +14,7 @@ contract Insurance_Policy {
     address payable public beneficiary;
 
     //Amt to payout on claim
-    uint public payout_amount;
+    uint16 public payout_amount;
 
     // The time at which the policy expires
     uint public expirationTime;
@@ -33,8 +25,10 @@ contract Insurance_Policy {
     // Duration extended bool
     uint8 public extensions = 0;
 
-    constructor(uint _payout, address payable _beneficiary, uint8 _durationInDays, address _factoryOwner){
+    constructor(uint16 _payout, address payable _beneficiary, uint8 _durationInDays, address _factoryOwner){
         require(_durationInDays < 2**8 - 1, "Duration too long");
+        require(_payout < 2**16 - 1, "Payout too high");
+
         factoryOwner = _factoryOwner;
         owner = address(tx.origin);
         //owner is vendor who initiates policy creation
@@ -45,11 +39,14 @@ contract Insurance_Policy {
         expirationTime = block.timestamp + (_durationInDays * 1 days);
     }
 
-    function setClaimed() public {
+    function setClaimed() external {
         claimed = true;
     }
 
-    function extendDuration(uint8 extentionInDays) public {
+    function extendDuration(uint8 extentionInDays) external {
+        //1 extensions allowed
+        assert(extensions < 1);
+
         require(extentionInDays < 2**8 - 1, "Duration too long");
         
         //Restricted to factoryOwner calls if expired
@@ -59,8 +56,7 @@ contract Insurance_Policy {
             assert(msg.sender == factoryOwner);
         }
         
-        //3 extensions allowed
-        assert(extensions < 1);
+        
 
 
         expirationTime += (extentionInDays * 1 days);
