@@ -18,7 +18,8 @@
   "dependencies": {
     "ganache-cli": "^6.12.2",
     "generated-badges": "^1.0.11",
-    "truffle": "^5.1.65"
+    "truffle": "^5.1.65",
+    "truffle-assertions": "^0.9.2"
   },
   "devDependencies": {
     "@codechecks/client": "^0.1.12",
