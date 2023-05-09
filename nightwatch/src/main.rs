@@ -63,6 +63,7 @@ async fn event_test(provider: &Provider<Http>, abi: &Abi) -> Result<(), Box<dyn 
 
     Ok(())
 }
+
 // async fn test_transaction(provider: &Provider<Http>) -> Result<(), Box<dyn std::error::Error>> {
 //     let accounts = provider.get_accounts().await?;
 //     let wallet = LocalWallet::new(&mut rand::thread_rng());
